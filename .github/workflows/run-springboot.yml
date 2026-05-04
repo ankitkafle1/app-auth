@@ -1,4 +1,4 @@
-name: Build and Run Spring Boot App in Docker
+name: Build and Run Spring Boot App on Windows
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-run:
-    runs-on: self-hosted
+    runs-on: [self-hosted, Windows]
 
     steps:
       - name: Checkout code
@@ -16,17 +16,30 @@ jobs:
       - name: Build JAR with Maven
         run: mvn clean package -DskipTests
 
-      - name: Build Docker image
-        run: docker build -t springboot-app:latest .
-
-      - name: Stop old container
+      - name: Stop existing Spring Boot app
+        shell: powershell
         run: |
-          docker stop springboot-app || true
-          docker rm springboot-app || true
+          $pidFile = Join-Path $env:RUNNER_TEMP "app-auth-springboot.pid"
 
-      - name: Run new container
+          if (Test-Path $pidFile) {
+            $appPid = Get-Content $pidFile
+            $appProcess = Get-Process -Id $appPid -ErrorAction SilentlyContinue
+            if ($appProcess) {
+              Stop-Process -Id $appPid -Force
+              Wait-Process -Id $appPid -Timeout 30 -ErrorAction SilentlyContinue
+            }
+            Remove-Item $pidFile -Force
+          }
+
+          $connection = Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue
+          if ($connection) {
+            throw "Port 8080 is still in use by process ID(s): $($connection.OwningProcess -join ', ')"
+          }
+
+      - name: Run Spring Boot app
+        shell: powershell
         run: |
-          docker run -d \
-            --name springboot-app \
-            -p 8080:8080 \
-            springboot-app:latest
+          $pidFile = Join-Path $env:RUNNER_TEMP "app-auth-springboot.pid"
+          $env:RUNNER_TRACKING_ID = ""
+          $appProcess = Start-Process -FilePath "java" -ArgumentList "-jar", "target\app-0.0.1-SNAPSHOT.jar" -WindowStyle Hidden -PassThru
+          $appProcess.Id | Set-Content $pidFile
