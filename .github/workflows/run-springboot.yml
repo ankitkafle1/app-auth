@@ -3,7 +3,7 @@ name: Build and Run Spring Boot App in Docker
 on:
   push:
     branches:
-      - main
+      - location-service
 
 jobs:
   build-and-run:
