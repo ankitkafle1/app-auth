@@ -1,10 +1,10 @@
 package com.auth.app;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record UserLocationInfo(double latitude,
                                double longitude,
-                               LocalDateTime currentDate,
+                               Instant instant,
                                String userName,
                                String phoneNumber,
                                String vehicleNumber) {
